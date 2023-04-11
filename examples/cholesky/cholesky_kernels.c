@@ -286,6 +286,13 @@ static inline void chol_common_codelet_update_potrf(void *descr[], int s, void *
 				int Lwork = STARPU_VARIABLE_GET_ELEMSIZE(descr[1]);
 
 				sstatus = cusolverDnSpotrf(starpu_cusolverDn_get_local_handle(), CUBLAS_FILL_MODE_LOWER, nx, sub11, ld, workspace, Lwork, NULL);
+				printf("cusolverDnSpotrf returned %d\n", sstatus);
+				printf("CUBLAS_FILL_MODE_LOWER %d\n", CUBLAS_FILL_MODE_LOWER);
+				printf("nx %d\n", nx);
+				printf("sub11 %p\n", sub11);
+				printf("ld %d\n", ld);
+				printf("workspace %p\n", workspace);
+				printf("Lwork %d\n", Lwork);
 				STARPU_ASSERT(sstatus == CUSOLVER_STATUS_SUCCESS);
 			}
 #elif defined(STARPU_HAVE_MAGMA)

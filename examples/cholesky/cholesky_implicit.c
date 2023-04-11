@@ -66,8 +66,11 @@ static int _cholesky(starpu_data_handle_t dataA, unsigned nblocks)
 	{
 		int ret;
 		starpu_iteration_push(k);
+
+		// Create block Akk
 		starpu_data_handle_t sdatakk = starpu_data_get_sub_data(dataA, 2, k, k);
 
+		// Run chol(Akk)
 		ret = starpu_task_insert(&cl_potrf,
 					 STARPU_PRIORITY, noprio_p ? STARPU_DEFAULT_PRIO : unbound_prio ? (int)(2*nblocks - 2*k) : STARPU_MAX_PRIO,
 					 STARPU_RW, sdatakk,
@@ -84,8 +87,10 @@ static int _cholesky(starpu_data_handle_t dataA, unsigned nblocks)
 
 		for (m = k+1; m<nblocks; m++)
 		{
+			// Create block Amk
 			starpu_data_handle_t sdatamk = starpu_data_get_sub_data(dataA, 2, m, k);
 
+			// Run Amk := Akk \ Amk
 			ret = starpu_task_insert(&cl_trsm,
 						 STARPU_PRIORITY, noprio_p ? STARPU_DEFAULT_PRIO : unbound_prio ? (int)(2*nblocks - 2*k - m) : (m == k+1)?STARPU_MAX_PRIO:STARPU_DEFAULT_PRIO,
 						 STARPU_R, sdatakk,
@@ -97,13 +102,18 @@ static int _cholesky(starpu_data_handle_t dataA, unsigned nblocks)
 			if (ret == -ENODEV) return 77;
 			STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_insert");
 		}
+
+		// We won't use Akk anymore
 		starpu_data_wont_use(sdatakk);
 
 		for (n = k+1; n<nblocks; n++)
 		{
+			// Create block Ank
 			starpu_data_handle_t sdatank = starpu_data_get_sub_data(dataA, 2, n, k);
+			// Create block Ann
 			starpu_data_handle_t sdatann = starpu_data_get_sub_data(dataA, 2, n, n);
 
+			// Run Ann := Ann - Ank * Ank^T
 			ret = starpu_task_insert(&cl_syrk,
 						 STARPU_PRIORITY, noprio_p ? STARPU_DEFAULT_PRIO : unbound_prio ? (int)(2*nblocks - 2*k - n - n) : (n == k+1)?STARPU_MAX_PRIO:STARPU_DEFAULT_PRIO,
 						 STARPU_R, sdatank,
@@ -117,9 +127,12 @@ static int _cholesky(starpu_data_handle_t dataA, unsigned nblocks)
 
 			for (m = n+1; m<nblocks; m++)
 			{
+				// Create block Amn
 				starpu_data_handle_t sdatamk = starpu_data_get_sub_data(dataA, 2, m, k);
+				// Create block Amn
 				starpu_data_handle_t sdatamn = starpu_data_get_sub_data(dataA, 2, m, n);
 
+				// Run Amn := Amn - Amk * Ank^T
 				ret = starpu_task_insert(&cl_gemm,
 							 STARPU_PRIORITY, noprio_p ? STARPU_DEFAULT_PRIO : unbound_prio ? (int)(2*nblocks - 2*k - m - n) : ((n == k+1) && (m == k+1))?STARPU_MAX_PRIO:STARPU_DEFAULT_PRIO,
 							 STARPU_R, sdatamk,
